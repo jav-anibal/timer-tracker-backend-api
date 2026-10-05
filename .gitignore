@@ -62,3 +62,6 @@ logs/
 *.jar
 *.war
 env.ps1
+
+# El wrapper de Gradle debe estar versionado, si no un clon no puede compilar
+!gradle/wrapper/gradle-wrapper.jar
