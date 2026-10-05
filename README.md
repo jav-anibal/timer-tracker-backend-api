@@ -1,146 +1,132 @@
-# TimerTracker — Backend API
+# TimerTracker
 
-API REST para un sistema de fichaje horario y control de accesos empresarial: gestión de usuarios, roles, registros de entrada/salida y cálculo de jornadas laborales.
+API REST en Java 21 y Spring Boot para gestionar usuarios y roles. Es un proyecto de práctica para aprender backend con Java.
 
----
+## Qué hace
 
-## Índice
+- Crea usuarios con username, email y contraseña.
+- Guarda la contraseña cifrada con BCrypt. Nunca se devuelve en las respuestas.
+- Asigna el rol `EMPLOYEE` a cada usuario nuevo.
+- Permite consultar un usuario por id y listar todos.
+- Valida los datos de entrada y devuelve errores con códigos HTTP claros.
 
-- [Stack tecnológico](#stack-tecnológico)
-- [Arquitectura](#arquitectura)
-- [Puesta en marcha](#puesta-en-marcha)
-- [Variables de entorno](#variables-de-entorno)
-- [Tests](#tests)
-- [Flujo de trabajo con Git](#flujo-de-trabajo-con-git)
-- [Hitos](#hitos)
+## Stack
 
----
-
-## Stack tecnológico
-
-| Capa | Tecnología |
-|------|------------|
-| Lenguaje | Java 21 (toolchain de Gradle) |
-| Framework | Spring Boot 4.1.1 |
-| Persistencia | Spring Data JPA + Hibernate |
-| Base de datos | PostgreSQL 16 (Docker) |
-| Seguridad | Spring Security |
-| Validación | Jakarta Bean Validation |
-| Contenedores | Docker + Docker Compose |
-| Build | Gradle (wrapper incluido) |
-| Tests | JUnit 5, Spring Boot Test |
-
----
+- Java 21, Gradle
+- Spring Boot 4.1.1: Spring Web MVC, Spring Data JPA (Hibernate), Spring Security, Bean Validation
+- PostgreSQL 16 con Docker Compose
+- JUnit 5, Mockito, MockMvc
+- GitHub Actions para build y tests
 
 ## Arquitectura
 
-Arquitectura por capas clásica:
-
 ```
-HTTP -> Controller -> DTO -> Service -> Repository -> PostgreSQL
-```
-
-| Paquete | Responsabilidad |
-|---------|------------------|
-| `controller` | Endpoints HTTP, códigos de estado, recibe/devuelve DTOs |
-| `dto` | Contratos de entrada y salida, aísla las entidades del exterior |
-| `service` | Reglas de negocio y transacciones |
-| `repository` | Acceso a datos vía Spring Data JPA |
-| `model` | Entidades JPA |
-| `exception` | Manejo global de errores (`@ControllerAdvice`) |
-| `config` | Seguridad, JWT, CORS |
-
-Ubicación: `src/main/java/com/company/timertracker/`.
-
----
-
-## Puesta en marcha
-
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/jav-anibal/timer-tracker-backend-api.git
-cd timer-tracker-backend-api
+HTTP -> controller -> service -> repository -> PostgreSQL
+           |             |
+          DTO          entidad JPA
 ```
 
-### 2. Crear el archivo `.env`
+- `controller`: endpoints REST y códigos de respuesta.
+- `dto`: datos de entrada y salida. Las entidades no salen de la capa de servicio.
+- `service`: reglas de negocio y transacciones.
+- `repository`: acceso a datos con Spring Data JPA.
+- `model`: entidades JPA.
+- `exception`: manejo global de errores en `GlobalExceptionHandler`.
+- `config`: BCrypt, cadena de seguridad y carga de roles al arrancar.
+
+## Endpoints
+
+| Método | Ruta | Acceso | Respuesta |
+|---|---|---|---|
+| POST | `/api/users` | Público | 201 con `Location`, 400 si los datos no son válidos, 409 si el username o el email ya existen |
+| GET | `/api/users/{id}` | Autenticado | 200, o 404 si no existe |
+| GET | `/api/users` | Autenticado | 200 con la lista de usuarios |
+
+Cuerpo de `POST /api/users`:
+
+```json
+{
+  "username": "anibal",
+  "email": "anibal@mail.com",
+  "password": "password123"
+}
+```
+
+Reglas: username de 3 a 64 caracteres, email válido de hasta 128 y contraseña de 8 a 72.
+
+Los endpoints autenticados usan HTTP Basic con los usuarios guardados en la base de datos.
+
+## Cómo arrancarlo
+
+1. Copia la plantilla de variables y pon tu contraseña:
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+2. Levanta PostgreSQL:
+
+   ```powershell
+   docker compose up -d postgres
+   ```
+
+3. Arranca la aplicación. Docker Compose toma la conexión a la base de datos del contenedor:
+
+   ```powershell
+   .\gradlew.bat bootRun
+   ```
+
+La API queda en `http://localhost:8080`.
+
+Ejemplo:
 
 ```powershell
-Copy-Item .env.example .env
+curl.exe -X POST http://localhost:8080/api/users -H "Content-Type: application/json" -d "{\"username\":\"anibal\",\"email\":\"anibal@mail.com\",\"password\":\"password123\"}"
+curl.exe -u anibal:password123 http://localhost:8080/api/users
 ```
-
-Editar `.env` con credenciales locales (ver [Variables de entorno](#variables-de-entorno)).
-
-### 3. Levantar PostgreSQL con Docker
-
-```powershell
-docker compose up -d postgres
-docker compose ps
-```
-
-> Postgres se publica en el puerto **5434** del host (`5434:5432`). El 5432 lo usa el PostgreSQL instalado en Windows y el 5433 lo usaba otro proyecto. Si cambias el puerto, actualízalo también en `docker-compose.yml`.
-
-### 4. Compilar y ejecutar
-
-```powershell
-.\gradlew.bat clean build
-.\gradlew.bat bootRun
-```
-
-La aplicación arranca en `http://localhost:8080`.
-
-### Comandos útiles
-
-| Comando | Descripción |
-|---|---|
-| `.\gradlew.bat clean` | Borra artefactos previos |
-| `.\gradlew.bat test` | Ejecuta los tests |
-| `.\gradlew.bat check` | Compilación + tests |
-| `.\gradlew.bat bootRun` | Arranca la aplicación |
-| `docker compose up -d postgres` | Levanta PostgreSQL en segundo plano |
-| `docker compose down` | Detiene los contenedores sin borrar datos |
-| `docker compose down -v` | Detiene y borra el volumen (usar con cuidado) |
-
----
-
-## Variables de entorno
-
-`.env.example` (versionado, es la plantilla):
-
-```env
-POSTGRES_DB=timertracker2_db
-POSTGRES_USER=admin_postgres
-POSTGRES_PASSWORD=admin_docker
-```
-
-`.env` no se versiona (protegido por `.gitignore`) y contiene las credenciales reales locales. `docker-compose.yml` carga `.env` vía `env_file`, y la dependencia `spring-boot-docker-compose` detecta el contenedor en ejecución y configura la conexión a la base de datos automáticamente: no hace falta exportar variables al proceso de Java.
-
----
 
 ## Tests
 
-Los tests necesitan Postgres levantado (`docker compose up -d postgres`) y la contraseña en la variable `DB_PASSWORD`:
+Los tests necesitan PostgreSQL levantado y las variables de conexión, porque no usan Docker Compose:
 
 ```powershell
-$env:DB_PASSWORD = "la_contraseña_del_.env"
+$env:POSTGRES_PASSWORD = "la_contraseña_de_tu_.env"
+$env:POSTGRES_DB = "timertracker"
+$env:POSTGRES_USER = "timertracker"
 .\gradlew.bat test
 ```
 
----
+El puerto por defecto es el `5434`. Si lo cambias, define también `POSTGRES_PORT`.
 
-## Flujo de trabajo con Git
+Qué cubren:
+- `UserServiceTest`: alta, cifrado de contraseña, duplicados, rol inexistente, búsquedas.
+- `UserDetailsServiceImplTest`: carga de usuarios para la autenticación.
+- `UserControllerTest`: códigos 201, 400, 401, 404 y 409, y que la contraseña no aparece en la respuesta.
+- `TimertrackerApplicationTests`: que el contexto de Spring arranca.
 
-- Rama estable: `main`.
-- Ramas de trabajo con prefijos: `feat/`, `fix/`, `test/`, `docs/`, `chore/`.
-- Commits pequeños y descriptivos.
-- Nunca se suben `.env`, `build/`, `.gradle/` ni credenciales.
+El workflow de GitHub Actions (`.github/workflows/ci.yml`) ejecuta `./gradlew build` con Postgres como servicio.
 
----
+## Docker
 
-## Hitos
+`docker-compose.yml` define un único servicio, `postgres`, con PostgreSQL 16 y los datos en el volumen `postgres_data`.
 
-Registro de hitos alcanzados, en orden. Se agrega una entrada por hito completado; las anteriores no se reescriben.
+Publica el puerto `5434` del host. El `5432` suele estar ocupado por una instalación local de PostgreSQL y el `5433` lo usaba otro proyecto. Si cambias el puerto, actualízalo también en `docker-compose.yml`.
 
-- **2026-09-23** — Bootstrap: proyecto Spring Boot 4.1.1 sobre Java 21, PostgreSQL vía Docker Compose, estructura de paquetes por capas (`controller`, `service`, `repository`, `model`, `dto`, `exception`, `config`).
+Para borrar la base de datos, incluidos los datos: `docker compose down -v`.
 
-- **2026-09-23** — Modelo de datos: entidades `User`, `Role`, `TimeEntry` y `Workday` con JPA; enums `RoleName` y `TimeEntryType` en paquete `enums`; repositorios Spring Data (`RoleRepository`, `UserRepository`, `TimeEntryRepository`, `WorkdayRepository`). Hibernate crea cinco tablas: `users`, `roles`, `user_roles`, `time_entries`, `workdays`.
+## Estado del proyecto
+
+Hecho:
+- Alta, consulta por id y listado de usuarios.
+- Validación de entrada, manejo global de errores y 400, 404 y 409.
+- Contraseñas cifradas con BCrypt.
+- Autenticación HTTP Basic con usuarios de la base de datos.
+- Roles `ADMIN` y `EMPLOYEE` creados al arrancar.
+- Tests unitarios y de controlador, y CI en GitHub Actions.
+
+Limitaciones conocidas:
+- No hay login con token (JWT) ni sesiones. Cada petición autenticada envía usuario y contraseña.
+- Los endpoints no comprueban el rol: cualquier usuario autenticado puede listar usuarios.
+- No hay endpoints para cambiar la contraseña, desactivar usuarios ni paginar la lista.
+- Las entidades `TimeEntry` y `Workday` existen, pero no tienen endpoints ni lógica de fichaje.
+- El esquema lo crea Hibernate (`ddl-auto: update`). No hay migraciones.
