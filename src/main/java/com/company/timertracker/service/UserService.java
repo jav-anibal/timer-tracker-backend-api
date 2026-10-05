@@ -9,6 +9,7 @@ import com.company.timertracker.model.Role;
 import com.company.timertracker.model.User;
 import com.company.timertracker.repository.RoleRepository;
 import com.company.timertracker.repository.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,7 +50,12 @@ public class UserService {
                 .orElseThrow(() -> new IllegalStateException("Role EMPLOYEE not initialized"));
         user.addRole(employeeRole);
 
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            // Si dos altas con el mismo dato llegan a la vez, la BD rechaza la segunda
+            throw new DuplicateResourceException("Username or email already in use");
+        }
         return UserResponse.from(user);
     }
 
