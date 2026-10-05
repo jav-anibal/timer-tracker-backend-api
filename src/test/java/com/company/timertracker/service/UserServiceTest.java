@@ -10,6 +10,7 @@ import com.company.timertracker.model.User;
 import com.company.timertracker.repository.RoleRepository;
 import com.company.timertracker.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -63,7 +64,7 @@ class UserServiceTest {
         UserResponse response = userService.create(request);
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(captor.capture());
+        verify(userRepository).saveAndFlush(captor.capture());
         User saved = captor.getValue();
 
         assertThat(saved.getPasswordHash()).isEqualTo("hash");
@@ -84,7 +85,7 @@ class UserServiceTest {
         serviceWithBcrypt.create(request);
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(captor.capture());
+        verify(userRepository).saveAndFlush(captor.capture());
         String stored = captor.getValue().getPasswordHash();
 
         assertThat(stored).isNotEqualTo("password123");
@@ -100,7 +101,7 @@ class UserServiceTest {
                 .isInstanceOf(DuplicateResourceException.class)
                 .hasMessage("Username already in use");
 
-        verify(userRepository, never()).save(any());
+        verify(userRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -112,7 +113,20 @@ class UserServiceTest {
                 .isInstanceOf(DuplicateResourceException.class)
                 .hasMessage("Email already in use");
 
-        verify(userRepository, never()).save(any());
+        verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createReturnsDuplicateWhenDatabaseRejectsConcurrentInsert() {
+        when(userRepository.existsByUsername("anibal")).thenReturn(false);
+        when(userRepository.existsByEmail("anibal@mail.com")).thenReturn(false);
+        when(roleRepository.findByName(RoleName.EMPLOYEE)).thenReturn(Optional.of(employeeRole));
+        when(userRepository.saveAndFlush(any()))
+                .thenThrow(new DataIntegrityViolationException("uk_users_username"));
+
+        assertThatThrownBy(() -> userService.create(request))
+                .isInstanceOf(DuplicateResourceException.class)
+                .hasMessage("Username or email already in use");
     }
 
     @Test
@@ -125,7 +139,7 @@ class UserServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Role EMPLOYEE not initialized");
 
-        verify(userRepository, never()).save(any());
+        verify(userRepository, never()).saveAndFlush(any());
     }
 
     @Test
