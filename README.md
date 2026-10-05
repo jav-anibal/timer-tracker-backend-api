@@ -78,7 +78,7 @@ docker compose up -d postgres
 docker compose ps
 ```
 
-> El contenedor publica Postgres en el puerto **5433** del host (`5433:5432`), no en el 5432 por defecto, para evitar choques con una instalación nativa de PostgreSQL en Windows si existe una corriendo como servicio.
+> Postgres se publica en el puerto **5434** del host (`5434:5432`). El 5432 lo usa el PostgreSQL instalado en Windows y el 5433 lo usaba otro proyecto. Si cambias el puerto, actualízalo también en `docker-compose.yml`.
 
 ### 4. Compilar y ejecutar
 
