@@ -1,6 +1,10 @@
 spring:
   application:
     name: timertracker
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5434/timertracker2-db}
+    username: ${DB_USER:admin-postgres-timer}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update

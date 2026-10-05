@@ -119,7 +119,10 @@ POSTGRES_PASSWORD=admin_docker
 
 ## Tests
 
+Los tests necesitan Postgres levantado (`docker compose up -d postgres`) y la contraseña en la variable `DB_PASSWORD`:
+
 ```powershell
+$env:DB_PASSWORD = "la_contraseña_del_.env"
 .\gradlew.bat test
 ```
 
