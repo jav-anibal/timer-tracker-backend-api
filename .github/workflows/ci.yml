@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: timertracker
+      POSTGRES_USER: timertracker
+      POSTGRES_PASSWORD: timertracker
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: timertracker
+          POSTGRES_USER: timertracker
+          POSTGRES_PASSWORD: timertracker
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U timertracker"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Build and test
+        run: ./gradlew build
