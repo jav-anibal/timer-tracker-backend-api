@@ -1,6 +1,6 @@
 # TimerTracker
 
-API REST en Java 21 y Spring Boot para gestionar usuarios y roles. Es un proyecto de práctica para aprender backend con Java.
+API REST en Java 21 y Spring Boot para gestión de usuarios y roles, con persistencia PostgreSQL, validación, seguridad, testing automatizado y CI.
 
 ## Qué hace
 
